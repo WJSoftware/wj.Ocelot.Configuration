@@ -19,15 +19,10 @@ Install the package using your preferred method.  For example, using the `dotnet
 dotnet add package wj.Ocelot.Configuration
 ```
 
-Now create a new class that derives from `GatewayRoutes`.  In the below example, another class (`RouteGroup`) is used 
-to simplify writing.  It is normally not necessary to do this, but it just makes the other class' code look prettier.
+Now create a new class that derives from `GatewayRoutes`:
 
 ```csharp
-public class RouteGroup : OcelotRouteGroup<OcelotRoute>
-{ }
-```
-
-```csharp
+using RouteGroup =  OcelotRouteGroup<OcelotRoute>;
 public class OcelotRoutes : GatewayRoutes<RouteGroup, OcelotRoute>
 {
     #region Microservices
@@ -237,6 +232,17 @@ collection, as long as the individual routes do not specify a value of their own
 Inherit from this class and add properties to expand the number of microservice-level properties available to your 
 project.
 
+The currently defined properties of this class are:
+
+| Property | Maps to (in `FileRoute`) | Package Version | Remarks |
+| - | - | - | - |
+| `Host` | `DownstreamHostAndPort[].Host` | 0.1.0 | Set in tandem with the `Port` property. |
+| `Port` | `DownstreamHostAndPort[].Port` | 0.1.0 | Set in tandem with the `Host` property. |
+| `DownstreamScheme` | `DownstreamScheme` | 0.1.0
+| `TimeOut` | `QoSOptions.TimeoutValue` | 0.1.0 | This one is of type `TimeSpan?` (as opposed to `int` in `FileRoute`). |
+| `Priority` | `Priority` | 0.1.0 | The only difference is that this class' property is nullable:  `int?`.
+| `RootPath` | As a part of `UpstreamPathTemplate` | 0.1.0 | See [this section](#the-in-box-mapping-algorithm-explained) for details. |
+
 ## The GatewayRoutes Class
 
 This is the class used at the top level in the configuration hierarchy:  The gateway level.
@@ -249,6 +255,12 @@ groups to be defined.
 Inherit from this class as shown in the [Quickstart details](#quickstart-details), creating one property for each 
 microservice (route group).  These properties will be discovered using reflection, so it is important that they follow 
 the instructions regarding the property's data type.
+
+The currently defined properties of this class are:
+
+| Property | Maps to (in `FileRoute`) | Package Version | Remarks |
+| - | - | - | - |
+| `RootPath` | As a part of `UpstreamPathTemplate` | 0.1.0 | See [this section](#the-in-box-mapping-algorithm-explained) for details. |
 
 ## The Extension Class
 
@@ -266,7 +278,7 @@ same as in Ocelot's `FileRoute` class, and have the same return type, or its nul
 
 **IMPORTANT**:  It his highly recommended to always use nullable types.
 
-# The Property Value Mapping Algorithm
+## The Property Value Mapping Algorithm
 
 The in-box property mapping algorithm is based on 2 qualities of the properties:  **Name** and **return type**.  If a 
 property is found in `OcelotRoute` or `OcelotRouteGroup` that has the same name and return type as a property in 
@@ -278,7 +290,7 @@ the route group (microservice) level.  In other words, if the individual route s
 set; if no individual route value is present, then the route group value is the one set.  If both values are absent, 
 then the property will be left with Ocelot's default value.
 
-## The In-Box Mapping Algorithm Explained
+### The In-Box Mapping Algorithm Explained
 
 Intentionally missing the automatic property match can be helpful.  For example, this library intentionally misses the 
 automatic match for the `TimeoutValue` property in several ways.  First of all, it is not part of a sub-object, while 
@@ -300,7 +312,7 @@ the group level's root path, and finally its own value.
 2. It will acquire the value from `DownstreamPathTemplate` if left unspecified.  Most often than not and thanks to the 
 REST specification, these two will match.  Implementing this copy operation supports the **DRY** principle.
 
-## Providing a New Mapping Function
+### Providing a New Mapping Function
 
 This is something that is only needed if properties are added at the individual route or group route levels that do 
 not match any of Ocelot's `FileRoute` properties as explained previously, or if the value will undergo some extra 
