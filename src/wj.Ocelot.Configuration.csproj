@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.1.0-alpha.0</Version>
+    <PackageReleaseNotes>Currently in the early testing phase.</PackageReleaseNotes>
+    <PackageTags>Ocelot config configuration microservice gateway</PackageTags>
+    <RepositoryUrl>https://github.com/WJSoftware/wj.Ocelot.Configuration</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/WJSoftware/wj.Ocelot.Configuration</PackageProjectUrl>
+    <Description>Configuration package that builds Ocelot route configurations for microservices in a way that allows easy per-environment overrides.</Description>
+    <Company />
+    <Authors>webJose (webJose@gmail.com)</Authors>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <PackageLicenseUrl>https://github.com/WJSoftware/wj.Ocelot.Configuration/blob/master/LICENSE</PackageLicenseUrl>
+    <!-- <PackageIconUrl>https://github.com/webJose/wj.ObjectComparer/blob/master/Logo_1024.png</PackageIconUrl> -->
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Net.Http" />
+    <Using Remove="System.Threading" />
+    <Using Remove="System.Threading.Tasks" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="6.0.*" />
+    <PackageReference Include="Ocelot" Version="18.*" />
+  </ItemGroup>
+</Project>
