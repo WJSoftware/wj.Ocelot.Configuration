@@ -18,13 +18,13 @@ public static class Extensions
     /// gateway routes class.</typeparam>
     /// <typeparam name="TRoute">The type of route that will be used in the route groups.</typeparam>
     /// <param name="builder">Configuration builder.</param>
-    /// <param name="configSection">Configuration section containing Ocelot's configuration values as defined by this 
+    /// <param name="configuration">Configuration section containing Ocelot's configuration values as defined by this 
     /// library.</param>
     /// <param name="configDelegate">Optional configuration delegate used to set this library's possible options.</param>
     /// <returns>The given configuration builder to allow for fluent syntax.</returns>
-    public static IConfigurationBuilder ConfigureOcelot<TRoutes, TRouteGroup, TRoute>(
+    public static IConfigurationBuilder AddOcelotConfiguration<TRoutes, TRouteGroup, TRoute>(
         this IConfigurationBuilder builder,
-        IConfigurationSection configSection,
+        TRoutes configuration,
         Action<OcelotMapOptions<TRoutes, TRouteGroup, TRoute>> configDelegate = null
     )
         where TRoutes : GatewayRoutes<TRouteGroup, TRoute>
@@ -34,10 +34,9 @@ public static class Extensions
         OcelotMapOptions<TRoutes, TRouteGroup, TRoute> mapOptions = new();
         configDelegate?.Invoke(mapOptions);
         var mapperFn = mapOptions.MapperDelegate ?? mapOptions.DefaultMapperDelegate;
-        var ocelotOpts = configSection.Get<TRoutes>();
         dynamic routes = new
         {
-            Routes = OcelotRouteMapper<TRoutes, TRouteGroup, TRoute>.BuildRoutes(ocelotOpts, mapperFn)
+            Routes = OcelotRouteMapper<TRoutes, TRouteGroup, TRoute>.BuildRoutes(configuration, mapperFn)
         };
         string routeText = JsonSerializer.Serialize(routes);
         // Stream will be disposed automatically after the configuration root is built.
@@ -52,13 +51,13 @@ public static class Extensions
     /// </summary>
     /// <typeparam name="TRoutes">Gateway routes type.</typeparam>
     /// <param name="builder">Configuration builder.</param>
-    /// <param name="configSection">Configuration section containing Ocelot's configuration values as defined by this 
+    /// <param name="configuration">Configuration section containing Ocelot's configuration values as defined by this 
     /// library.</param>
     /// <returns>The given configuration builder to allow for fluent syntax.</returns>
-    public static IConfigurationBuilder ConfigureOcelot<TRoutes>(
+    public static IConfigurationBuilder AddOcelotConfiguration<TRoutes>(
         this IConfigurationBuilder builder,
-        IConfigurationSection configSection
+        TRoutes configuration
     )
         where TRoutes : GatewayRoutes<OcelotRouteGroup<OcelotRoute>, OcelotRoute>
-        => builder.ConfigureOcelot<TRoutes, OcelotRouteGroup<OcelotRoute>, OcelotRoute>(configSection, opts => { });
+        => builder.AddOcelotConfiguration<TRoutes, OcelotRouteGroup<OcelotRoute>, OcelotRoute>(configuration, opts => { });
 }

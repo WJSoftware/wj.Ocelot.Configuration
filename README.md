@@ -2,18 +2,24 @@
 > Configuration package that builds Ocelot route configurations for microservices in a way that allows easy 
 > per-environment overrides.
 
+# Your Feedback Is Important!
+
+This package is in its early stages.  We would like to hear about the most common configured and overridden properties 
+of the Ocelot configuration.  Please take just 2 minutes of your time to visit this [issue in Github](https://github.com/WJSoftware/wj.Ocelot.Configuration/issues/1) 
+to tell us about your Ocelot configuration needs.
+
 # Quickstart
 
 1. Install the nuget package.
 2. Create a class that inherits from `GatewayRoutes`.
-3. Add one property per microservice of type `OcelotRouteGroup<MicroSvcRoute>`.
+3. Add one property per microservice of type `OcelotRouteGroup<OcelotRoute>`.
 4. Open your `appsettings.json` file and add a new section for your Ocelot configuration.
 5. Inside this new section, follow the new arrangement to configure Ocelot (see example below).
 6. Add the Ocelot configuration to the configuration builder.
 
 ## Quickstart Details
 
-Install the package using your preferred method.  For example, using the `dotnet` cli:
+Install the package using your preferred method.  For example, using the `dotnet` CLI:
 
 ```powershell
 dotnet add package wj.Ocelot.Configuration
@@ -35,8 +41,8 @@ public class OcelotRoutes : GatewayRoutes<RouteGroup, OcelotRoute>
 
 Now to the `appsettings.json` file.  Something like this.  This is where the usefulness of this package becomes 
 evident.  You only specify the microservice's host name, port, scheme and root path once.  This means that any needed 
-per-environment configuration override is easily done and is only done once.  For a detailed explanation see the [why 
-this package is needed](#why-this-package-is-needed) section.
+per-environment configuration override is easily done and is only done once.  For a detailed explanation see the *[Why 
+This Package Is Needed](#why-this-package-is-needed)* section.
 
 ```json
 {
@@ -53,7 +59,7 @@ this package is needed](#why-this-package-is-needed) section.
       "Host": "microsvc-a-svc", // <--- Usually the K8s service name.
       "Port": 80, // <--- This is the default because in K8s we usually just do HTTP internally.  Added just for clarity.  This can go.
       "DownstreamScheme": "http", // <--- HTTP is the default, so no need to specify.  Added just for clarity.  This can go.
-      "RootPath": "/msvcA", // <--- Root path addition to identify the A microservice route.  Optional.
+      "RootPath": "/msvcA", // <--- Root path addition to identify the A microservice routes.  Optional.
       "Routes": [ // <--- Now you only specify per-route stuff.  Host et. al. are inherited from the parent.
         {
           "DownstreamPathTemplate": "/resourceX",
@@ -103,14 +109,26 @@ For **.Net6** with the simplified `program.cs` file:
 
 ```csharp
 // Get the configuration we wrote in the appsettings.json files.
-var ocelotConfig = builder.Configuration.GetSection("Ocelot");
-// Pass it along to the extension helper method.
-builder.Configuration.ConfigureOcelot<OcelotRoutes>(ocelotConfig);
+var ocelotConfig = builder.Configuration.GetSection("Ocelot").Get<OcelotRoutes>();
+// Pass it along to the extension method.
+builder.Configuration.AddOcelotConfiguration(ocelotConfig);
 ```
 
-For **.Net6** projects that don't use the simplified `program.cs` file (such as projects that were migrated to .Net6):
+For **.Net6** projects that don't use the simplified `program.cs` file (such as projects that were migrated to .Net6 
+from, say, .Net5):
+
 ```csharp
-todo
+var builder = hostBuilder
+    .ConfigureWebHostDefaults(webBuilder =>
+    {
+        webBuilder.UseStartup<Startup>();
+        webBuilder.ConfigureAppConfiguration(configBuilder =>
+        {
+            var configuration = configBuilder.Build();
+            var ocelotConfig = configuration.GetSection("Ocelot").Get<OcelotRoutes>();
+            configBuilder.AddOcelotConfiguration(ocelotConfig);
+        });
+    });
 ```
 
 And this is it.  Now Ocelot is fully configured.
@@ -122,15 +140,18 @@ create a new class that can provide even more Ocelot route properties at this le
 
 # Why This Package Is Needed
 
-Ocelot is a practical way to route HTTP calls in a microservice architecture.  However (and surprisingly), the 
-configuration is not friendly at all when it comes to defining the routes.  Why surprisingly?  Because it is so common 
-to have the need to change the hosts according to the environment that it is beyond comprehension why this wasn't 
-taken into consideration when the route configuration was designed.
+Ocelot is a practical way to route HTTP calls in a microservice architecture.  However, the configuration is not 
+friendly at all when it comes to defining the routes in terms of **DRYness** (Don't Repeat Yourself) and value 
+overrides.
 
-So what is this design problem?  Simple:  The `Routes` property in the configuration JSON is an **array**.  The .Net 
-Configuration engine cannot override properties at the *array element* level.  This means that even if only one tiny 
-piece of information needs to change in a 1000-line route configuration, all 1000 lines must be repeated in a new 
-configuration file.  **DRY** (Don't Repeat Yourself) also applies to configuration values.  This is a major issue.
+So what is the problem with Ocelot's configuration design?  Simple:  The `Routes` property in the configuration JSON 
+is an **array**.  The .Net Configuration engine cannot override properties at the *array element* level.  This means 
+that even if only one tiny piece of information needs to change in a 1000-line route configuration in a different 
+environment, all 1000 lines must be repeated in a new configuration file.
+
+The second problem is that some required values must always be repeated, namely the microservice's host, port number, 
+scheme, and there's no single property to set a root path.  This means that common pieces of routes will be repeated 
+in the `UpstreamPathTemplate` property in every route.
 
 So **wj.Ocelot.Configuration** was born to re-design the route configuration in a manner that allows easy, 
 single-place configuration value declarations that can be as easily overridden by following the rules of the .Net 
@@ -141,15 +162,15 @@ As an example, let's create the `appsettings.Development.json` file for the [Qui
 Usually, the `Development` environment is the environment used by developers when running a project in their own local 
 machines.  This means most likely that a developer that runs the gateway project will also be running some other 
 projects, like the *MicroSvcA* project described in the configuration example in **Quickstart**.  This means, that in 
-`Development`, the server and ports must be reconfigured to `localhost` and whatever port the *MicroSvcA* project is 
+`Development`, the server and port must be reconfigured to `localhost` and whatever port the *MicroSvcA* project is 
 being run.
 
 Without this package, the developer would be forced to copy the entire routes configuration to just make the host and 
 port changes.  Furthermore, the host and port specification is repeated in every route definition for the same 
-microservice, so **DRY** is not there.  With this package, the route information is not duplicated and can actually be 
-targetted for override by the .Net Configuration engine.
+microservice, so configuration data must be repeated, disrespecting the **DRY**.  With this package, the route 
+information is not duplicated and can actually be targetted for override by the .Net Configuration engine.
 
-This would be `appsettings.Development.json`:
+This would be the `appsettings.Development.json` file for the **Quickstart** example:
 
 ```json
 {
@@ -166,7 +187,8 @@ This would be `appsettings.Development.json`:
 }
 ```
 
-Much, much simpler and cleaner.
+That tiny environment-specific JSON file will not grow.  The microservices could be defining thousands of different 
+routes, and this file would not change one bit.
 
 # What Comes in the Box
 
@@ -208,7 +230,7 @@ needed configuration properties.  Note that adding it here will only provide ind
 same reasoning with the `OcelotRouteGroup` class (explained next) if you want the properties to apply to all routes in 
 a microservice.
 
-Whenever possible, name the property the same as in Ocelot's `FileRoute` class so the standard mapping algorithm will 
+Whenever possible, name the property the same as in Ocelot's `FileRoute` class so the standard mapping algorithm can 
 automatically pick it up for mapping.  For this to work, however, the property's data type must be the same (in 
 nullable version).  More about this topic [later](#the-property-value-mapping-algorithm).
 
@@ -262,9 +284,10 @@ The currently defined properties of this class are:
 | - | - | - | - |
 | `RootPath` | As a part of `UpstreamPathTemplate` | 0.1.0 | See [this section](#the-in-box-mapping-algorithm-explained) for details. |
 
-## The Extension Class
+## The Extensions Class
 
-This is a static class that defines the `ConfigureOcelot()` extension method for the `IConfigurationBuilder` interface.
+This is a static class that defines the `AddOcelotConfiguration()` extension method for the `IConfigurationBuilder` 
+interface.
 
 The method comes with 2 overloads.  The simpler one is for the cases where the properties already mapped by the 
 library are enough for the gateway application.  In this case, only one custom type will have been made (the gateway 
@@ -274,7 +297,7 @@ mapping algorithm.
 The second overload, on the other hand, will require the specification of all the types used in configuration (for the 
 3 levels gateway, microservice and individual route), and will allow the inclusion of a new mapping algorithm.  This 
 is not a requirement, though, because the in-box algorithm can pick up new properties as long as they are named the 
-same as in Ocelot's `FileRoute` class, and have the same return type, or its nullable version.
+same as in Ocelot's `FileRoute` class, and have the same return type (or its nullable version).
 
 **IMPORTANT**:  It his highly recommended to always use nullable types.
 
@@ -300,7 +323,7 @@ however, is not the only change.  The matching property is not named the same.  
 timeout value.
 
 Another good reason to avoid embedded properties is because the current algorithm does not recursively traverse 
-property values to individually set values.  This is an unsupported scenarios.  The current algorithm is only capable 
+property values to individually set values.  This is an unsupported scenario.  The current algorithm is only capable 
 of setting the vlaue of a property with a custom object as a whole.  It will not drill down that object to 
 individually set properties.
 
@@ -319,10 +342,10 @@ not match any of Ocelot's `FileRoute` properties as explained previously, or if 
 logic like in the examples in the previous section.
 
 The mapping logic is provided when configuring using the `IConfiguraitonBuilder`'s extension method 
-`ConfigureOcelot()`.  Generally speaking, it is done like this:
+`AddOcelotConfiguration()`.  Generally speaking, it is done like this:
 
 ```csharp
-builder.Configuration.ConfigureOcelot<TRoutes, TRouteGroup, TRoute>(ocelotConfig, opt =>
+builder.Configuration.AddOcelotConfiguration<MyRoutes, MyRouteGroup, MyRoute>(ocelotConfig, opt =>
 {
     opt.MapperDelegate = (route, parent, rootPath) =>
     {
@@ -335,4 +358,5 @@ builder.Configuration.ConfigureOcelot<TRoutes, TRouteGroup, TRoute>(ocelotConfig
 ```
 
 As shown in the example, it is highly recommended to always call the default mapper in order to only have to provide 
-the additional logic required for the additional properties defined in `TRoute` or `TRouteGroup`.
+the additional logic required for the additional properties defined in `MyRoute` or `MyRouteGroup` that aren't matched 
+by the in-box algorithm.
